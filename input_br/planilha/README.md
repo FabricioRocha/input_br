@@ -33,7 +33,7 @@ There is a mechanism to allow formulae to be replicated to other cells, either a
 
 - Enter the **C**opy mode by pressing C;
 - Then you will be asked to press a key to choose the copy mode: **R**elative or **A**bsolute;
-- Place the cursor in the cell to be copied, then press L if the cell will be copied to different **L**ine(s) or press C if the cell willbe copied to different **C**olumn(s);
+- Place the cursor in the cell to be copied, then press L if the cell will be copied to different **L**ine(s) or press C if the cell will be copied to different **C**olumn(s);
 - Then you will be asked to type in the first and the last destination cell addresses.
 
 Sheets are **S**aved or **L**oaded by pressing S or L anytime but when inserting values in a cell. Disk-drives were expensive and rare in Brazil back when INPUT was published, so the program is written to use a _data corder_ (cassette tape recorder), but this can be changed easily in lines 1260 and 1390. Apparently, data is saved in a CSV-like fashion (I still have to look closer at this).
@@ -47,11 +47,13 @@ In old BASIC all variables are global, and names are quite commonly restricted t
 #### D$(26,30) and D(26,30)
 Defined in line 30. These two-dimensional arrays store, respectively, formulae and their results for one sheet.
 
-Supposing that 26 is the number of letters in the alphabet and columns are refered to by letters, I wonder why the declaration looks inverted, as a two-dimensional DIM is usually taken as DIM(rows,cols). Also D$ is initialized in line 40 with CHR$(128) characters, and I can´t figure out what exactly the character means in Brazilian MSX computers.
-
+Supposing that 26 is the number of letters in the alphabet and columns are refered to by letters, I wonder why the declaration looks inverted, as a two-dimensional DIM is usually taken as DIM(rows,cols). Indeed, loops (like the one in lines 750 to 780) show an inversion of columns and rows between the array and the sheet view. Furthermore, D$ is initialized in line 40 with CHR$(128) characters, and I still can´t figure out why: in Brazilian MSX computers it would be the "Ç" character (80h).
 
 #### MO$(2) and MO
 Related to the view/operation **MO**des of values or equations. Defined in line 20. The two-element array MO$ holds the strings for sheet view modes (values or equations). MO is initialized to 1 (equation) and seems to hold the current operation mode.
+
+#### RV$ and RV
+I presume the names stand for **R**esult **V**alue. RV is set by all subroutines which perform the supported cell calculations. RV$
 
 #### CC and CR
 These numerical variables seem to be named after _**C**urrent **C**olumn_ and _**C**urrent **R**ow_.
@@ -63,53 +65,85 @@ Apparently, this is a string variable used to catch input in various and not so 
 From its declaration in line 20, this is a string which holds all the supported numerical **OP**erators.
 
 ### Literals and constants
-MSX BASIC had no named constants, and literals abound in the code. Knowing beforehand what some of them mean might help.
+MSX BASIC had no named constants. Instead, there are plenty literals and magic numbers all around the code. Knowing beforehand what some of them mean might help.
 
-**CHR$(91)** - Opening bracket \[, 5Bh
-**CHR$(93)** - Closing bracket \], 5Dh
-**CHR$(219)** - Graphic full block in MSX (DBh)
-**CHR$() 28, 29, 30, 31** - Cursor keys, respectively right, left, up and down: 1Ch, 1Dh, 1Eh, 1Fh
+- **CHR$(91)** - Opening bracket \[, 5Bh
+- **CHR$(93)** - Closing bracket \], 5Dh
+- **CHR$(219)** - Graphic full block in MSX (DBh)
+- **CHR$() 28, 29, 30, 31** - Cursor keys, respectively right, left, up and down: 1Ch, 1Dh, 1Eh, 1Fh
 
 ## Subroutines (GOTOs and GOSUBs)
 
 #### GOSUB 70 - 160 - Draw main screen
 Called at lines 60, 270, 290, 400
 
-Starts by printing a 3 graphic blocks at the third line of the screen
+Starts by printing a 3 graphic blocks at the third line of the screen.
 
-#### GOSUB 130
-Called at line 320, looks like a dirty trick of branching to the _middle_ of a subroutine!
+Line 90 contains some mysterious calculation and screen output in a FOR...NEXT loop. Let´s open it:
+```BASIC
+FOR I=0 TO 15
+  C1=INT((RS+I)/10)+48
+  C2=(RS+I)-((C1-48)*10)+48
+  LOCATE 0,I+1
+  PRINT CHR$(C1);CHR$(C2):
+NEXT
+```
+RS was declared and initialized in line 20 with value 1.
 
-#### GOTO 170
+#### GOSUB 130 - 160 - Update the "status line" at screen top
+Called at line 320, this target is still part of the main screen drawing routine started at line 70 &ndash; the jump looks like a dirty trick of branching to the _middle_ of a subroutine!
 
-#### GOTO 410 - Insert content into a cell
+#### GOTO 170 - 320 - Command keys input
+We get here right after initialization, from line 60. This section puts the program in "waiting command" state, and branches processing when any of the cursor or command keys is pressed.
+
+Things start with some nice mathemagic and the only PEEKs and POKEs in this code. The graphic full block character (219, or DBh)
 
 
-#### GOTO 600
-From 490, 510, 530, 540
+#### GOSUB 410 - 650 - Cell content insertion
+Called at line 260.
+
+
 
 ### GOTO 610
 
 #### GOSUB 660
-Called at 610
+Called at lines 120, 610
 
 #### GOTO 720
 
-#### GOSUB 730
-Called at 890.
+#### GOSUB 730 - Get value from cell address
+Called at lines 880 and 890, it is a one-line subroutine which "parses" a cell address like A19, gets its correspondent value from the D array and puts it in variable V.
 
-#### GOSUB 740
+#### GOSUB 740 - 1220 - Recalculate the whole sheet
+Called only in line 100 if the view mode is set to show values.
 
-#### GOTO 920
-You can get here from lines 1080 and 1120
+This subroutine contains an enormous nested loop, ranging from lines 790 to 1210, with subroutine calls and declarations, internal and external jumps, screen operations and everything.
+
+#### GOTO 920 - 990 - Prepare cell output
+You can get here only from lines 1080 and 1120, as a final move of both subroutines for vertical and horizontal range sums. I can´t guess why this was not made into a subroutine.
+
+Variable DP (**D**ecimal **P**laces?) has its value set right before the jump and its content is the optional digit which determines how many decimal places should be exhibited in the result of a formula.
+
+PU$ might stand for *P*rint *U*sing as it is set to a formatting string for PRINT USING. I have a feeling that a dot is missing at line 930.
 
 #### GOSUB 1000, 1010, 1020, 1030, 1040
-These one-line subroutines are called at 910 according to the operator found in a cell formula by the INSTR function.
+Those one-line subroutines are called at 910 according to the operator found in a cell formula by the INSTR function.
 Notice that for a 0 divisor the routine at 1030 returns 0.
 
-#### GOTO 1050 - 1080
+#### GOTO 1050 - 1080 - Vertical range sum
+Flow comes here from line 850.
 
-#### GOTO 1090
+#### GOTO 1090 - 1120 - Horizontal range sum
+Branched to by line 860.
+
+#### GOTO 1130
+One gets here from line 820.
+
+Entangled logic here. Apparently, lines 1140 and 1150 could be eliminated if line 1130 were written as:
+
+```BASIC
+1130 IF ASC(D$(I,J))<>128 THEN RV$=MID$(D$(I,J),2) ELSE RV$=STRING$(7,32)
+```
 
 #### GOTO 1160
 
