@@ -2,7 +2,9 @@
 
 Published in three parts, all of them included in the 4th volume of bound fascicles in the most popular INPUT binding scheme in Brazil. This is 100% BASIC code with no machine code embedded and very few POKEs and PEEKs and alikes, and wow it´s a spreadsheet, so I thought it would be a good first program to type in and study.
 
-The MSX BASIC code file here has 8954 characters in 229 lines &ndash; I have included 5 comment (REM) lines and some line breaks, so it is actually a bit larger than the original, print version. I still have not tested the code in an emulator.
+The MSX BASIC code file here has 8954 characters in 229 lines &ndash; I have included 5 comment (REM) lines and some line breaks, so it is actually a bit larger than the original, print version.
+
+I tried to run the program on [WebMSX](https://webmsx.org) and [MSXPen](https://msxpen.com/) (uses the same WebMSX engine) but had no luck. The only way to get the file into the emulator is adding it to a disk image, but probably because of MSX Disk BASIC I kept getting an "Out of memory in 30" error (while DIMensioning the two main arrays).
 
 It is a very simple spreadsheet program which makes heavy use of string manipulation functions in BASIC, especially the following:
 
@@ -71,6 +73,11 @@ MSX BASIC had no named constants. Instead, there are plenty literals and magic n
 - **CHR$(93)** - Closing bracket \], 5Dh
 - **CHR$(219)** - Graphic full block in MSX (DBh)
 - **CHR$() 28, 29, 30, 31** - Cursor keys, respectively right, left, up and down: 1Ch, 1Dh, 1Eh, 1Fh
+- As far as I could understand, the following "extended ASCII" characters are used as prefixes in cell contents stored in D$ in order to classify them for proper processing:
+  - **CHR$(128)** - 80h, _Ç_ in most MSXs, seems to be used as a placeholder for empty cells, in lines 40, 420, 680 (from 670), 1130, 1170 and 1290.
+  - **CHR$(129)** - 81h is the _ü_ character in most MSX machines. The value is refered in lines 590, 690 and 770. Identifies values.
+  - **CHR$(130)** - 82h, character _é_. Used in line 600, 690 (from 670) and 1170. Identifies labels (textual content).
+  - **CHR$(131)** - 83h, character _â_. Mentioned in lines 550, 820 and 1550. Identifies formulae.
 
 ## Subroutines (GOTOs and GOSUBs)
 
@@ -96,7 +103,7 @@ Called at line 320, this target is still part of the main screen drawing routine
 #### GOTO 170 - 320 - Command keys input
 We get here right after initialization, from line 60. This section puts the program in "waiting command" state, and branches processing when any of the cursor or command keys is pressed.
 
-Things start with some nice mathemagic and the only PEEKs and POKEs in this code. The graphic full block character (219, or DBh)
+Things start with some nice mathemagics and the only PEEKs and POKEs in this code. The graphic full block character (219, or DBh)
 
 
 #### GOSUB 410 - 650 - Cell content insertion
@@ -112,7 +119,7 @@ Called at lines 120, 610
 #### GOTO 720
 
 #### GOSUB 730 - Get value from cell address
-Called at lines 880 and 890, it is a one-line subroutine which "parses" a cell address like A19, gets its correspondent value from the D array and puts it in variable V.
+Called at lines 880 and 890, it is a one-line subroutine which "parses" a cell address like A19 stored in variable Z$, gets its correspondent value from the D array and puts it in variable V.
 
 #### GOSUB 740 - 1220 - Recalculate the whole sheet
 Called only in line 100 if the view mode is set to show values.
@@ -139,11 +146,12 @@ Branched to by line 860.
 #### GOTO 1130
 One gets here from line 820.
 
-Entangled logic here. Apparently, lines 1140 and 1150 could be eliminated if line 1130 were written as:
+Entangled logic here. Apparently, lines 1140 and 1150 could be eliminated if line 1130 had been written as:
 
 ```BASIC
 1130 IF ASC(D$(I,J))<>128 THEN RV$=MID$(D$(I,J),2) ELSE RV$=STRING$(7,32)
 ```
+Which makes the same: in the end, RV$ has 7 blank spaces or the row number from a cell address.
 
 #### GOTO 1160
 
