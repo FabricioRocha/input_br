@@ -14,7 +14,7 @@ It is a very simple spreadsheet program which makes heavy use of string manipula
 - **CHR$(c)** - opposite of ASC(), returns the character corresponding to the one-byte code _c_ from the computer´s character table
 - **MID$(st$, fr, nm)** and **MID$(st$, fr, to)=s2$** - in the first form the function returns a number _nm_ of characters from a string _st$_ starting from the _fr_ position; in the second form the function **replaces** part of the string _st$_ with part of another string _s2$_.
 
-Most of the code is actually related to console input/output. The program uses MSX SCREEN 0, a 40x24 display of 6x8 pixel characters. Screen locations are 0 based.
+Most of the code is actually related to console input/output. The program uses MSX SCREEN 0, a 40x24 display of 6x8 pixel characters. Screen locations are 0 based. I found that **LOCATE** works quite differently between MSX BASIC and QBasic because any of the _LOCATE 0_ statements resulted in "Illegal function call" in QBasic, and in MSX the parameter order is _column, line_ while in QBasic it is _line, column_.
 
 ## Operation
 
@@ -95,7 +95,9 @@ FOR I=0 TO 15
   PRINT CHR$(C1);CHR$(C2):
 NEXT
 ```
-RS was declared and initialized in line 20 with value 1.
+I just can´t understand why the hell such a convoluted and slow way was found just to write line numbers from 02 to 16 at the left side of the screen. In ASCII, the codes for 0 to 9 are 48 (30h) to 57 (39h), and these are the values attributed to C1 and C2 here.
+
+ 
 
 #### GOSUB 130 - 160 - Update the "status line" at screen top
 Called at line 320, this target is still part of the main screen drawing routine started at line 70 &ndash; the jump looks like a dirty trick of branching to the _middle_ of a subroutine!
@@ -103,7 +105,8 @@ Called at line 320, this target is still part of the main screen drawing routine
 #### GOTO 170 - 320 - Command keys input
 We get here right after initialization, from line 60. This section puts the program in "waiting command" state, and branches processing when any of the cursor or command keys is pressed.
 
-Things start with some nice mathemagics and the only PEEKs and POKEs in this code. The graphic full block character (219, or DBh)
+This is the only "non-portable" section of the program, with VPEEK and VPOKE used from line 170 to 190 to read and write bytes from/to the MSX video memory. Especifically, a byte with value 219, DBh, the full block character. Mathemagics involved.
+
 
 
 #### GOSUB 410 - 650 - Cell content insertion
@@ -113,10 +116,10 @@ Called at line 260.
 
 ### GOTO 610
 
-#### GOSUB 660
-Called at lines 120, 610
+#### GOSUB 660 - 720 - Print one cell´s contents
+Called at lines 120 and 610 for writing a cell content to the screen, wherever the screen cursor might be located at. Variables A$ (full contents) and B$ (content type prefix removed) are used locally. I and J are "arguments", actually globals with their values set in the loops the subroutine is called from.
 
-#### GOTO 720
+Cell size is 7 characters. For an empty cell, seven spaces are printed. For textual or numerical values, padding is inserted by PRINT USING. For equations, all characters except spaces (ASCII 32) are printed. 
 
 #### GOSUB 730 - Get value from cell address
 Called at lines 880 and 890, it is a one-line subroutine which "parses" a cell address like A19 stored in variable Z$, gets its correspondent value from the D array and puts it in variable V.
@@ -124,18 +127,30 @@ Called at lines 880 and 890, it is a one-line subroutine which "parses" a cell a
 #### GOSUB 740 - 1220 - Recalculate the whole sheet
 Called only in line 100 if the view mode is set to show values.
 
-This subroutine contains an enormous nested loop, ranging from lines 790 to 1210, with subroutine calls and declarations, internal and external jumps, screen operations and everything.
+After printing a "Working..." message in the "status bar", a nested loop is used to write new values into the D array, as long as the corresponding values at D$ are identified with the character that labels them as textual or numerical values.
 
-#### GOTO 920 - 990 - Prepare cell output
-You can get here only from lines 1080 and 1120, as a final move of both subroutines for vertical and horizontal range sums. I can´t guess why this was not made into a subroutine.
+Then at line 790 a similar, nested and enormous loop is started, up to line 1210, embracing subroutine calls and declarations, internal and external jumps, screen operations and everything. The execution is branched to line 1130 if the cell representation in D$ contains anything but a formula. Then variable A$ is set to the formula (contents less prefix character) and the operator used is copied onto variable O$ -- repair that the operator is always _expected_ to be in the 7th position of the formula string.
 
-Variable DP (**D**ecimal **P**laces?) has its value set right before the jump and its content is the optional digit which determines how many decimal places should be exhibited in the result of a formula.
+If the formula operator does not denote a range sum, at lines 870-890 the two cell addresses in the formula are processed through the subroutine at 730 and their corresponding current values (from the D array) are stored in variables V1 and V2 (Z$ is used to "pass as parameter" each cell address and V is set to the routine´s return value.
 
-PU$ might stand for *P*rint *U*sing as it is set to a formatting string for PRINT USING. I have a feeling that a dot is missing at line 930.
+Let´s remember that formulae can contain an optional digit after the operator, to tell how many decimal places to show in the result: this digit is retrieved from the formula at line 900 and stored in variable DP (for **D**ecimal **P**laces, I guess?).
+
+Then at line 910 the formula operator is compared to the string OP$, which contains a list of supported operators, and according to its 1-based position in the list of supported operators stored at global OP$, its matching subroutine is called to perform the operation.  
+
+Lines 920 to 940 prepare the output of a cell content to the sheet. The execution path can get here from the previous line or from lines 1080 and 1120, as a final move of the code branches for vertical and horizontal range sums. This section could probably make for a subroutine as well. PU$ might stand for *P*rint *U*sing as it is set to a formatting string for PRINT USING. This string is defined to show up to 7 digits (or less if decimal places are needed according to variable DP). A wider number will be substituted for a "  <OV>" string in its cell. I have a feeling that a dot is missing at line 930, where a blank space is concatenated to two # sequences.
+
+Also from 920 to 940, a variable MP (might stand for **M**ain **P**art) is set to the length of the integer part that can be shown in a cell: up to 7 digits, but less if a decimal part is to be shown. MP will be used very soon.
+
+At line 950, an important move &ndash; the calculation value is finally stored at array D. 
+
+More output formatting issues are treated at lines 960 to 990. A negative number reduces by 1 the printing area for a cell value.
+
+
+
 
 #### GOSUB 1000, 1010, 1020, 1030, 1040
 Those one-line subroutines are called at 910 according to the operator found in a cell formula by the INSTR function.
-Notice that for a 0 divisor the routine at 1030 returns 0.
+Notice that for a 0 divisor the routine at 1030 returns 0. All of them write the result to variable RV (supposedly for **R**esult **V**alue).
 
 #### GOTO 1050 - 1080 - Vertical range sum
 Flow comes here from line 850.
