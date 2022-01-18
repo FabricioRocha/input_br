@@ -4,23 +4,11 @@ Published in three parts, all of them included in the 4th volume of bound fascic
 
 The MSX BASIC code file here has 8954 characters in 229 lines &ndash; I have included 5 comment (REM) lines and some line breaks, so it is actually a bit larger than the original, print version.
 
-I tried to run the program on [WebMSX](https://webmsx.org) and [MSXPen](https://msxpen.com/) (uses the same WebMSX engine) but had no luck. The only way to get the file into the emulator is adding it to a disk image, but probably because of MSX Disk BASIC I kept getting an "Out of memory in 30" error (while DIMensioning the two main arrays).
-
-It is a very simple spreadsheet program which makes heavy use of string manipulation functions in BASIC, especially the following:
-
-- **VAL(st$)** - returns numerical value it can extract from a string _st$_
-- **STR$(v)** - converts a numerical value _v_ into a string. The opposite of VAL().
-- **ASC(c$)** - returns the ASCII value of a given character (or first character of) _c$_
-- **CHR$(c)** - opposite of ASC(), returns the character corresponding to the one-byte code _c_ from the computer´s character table
-- **MID$(st$, fr, nm)** and **MID$(st$, fr, to)=s2$** - in the first form the function returns a number _nm_ of characters from a string _st$_ starting from the _fr_ position; in the second form the function **replaces** part of the string _st$_ with part of another string _s2$_.
-
-Most of the code is actually related to console input/output. The program uses MSX SCREEN 0, a 40x24 display of 6x8 pixel characters. Screen locations are 0 based. I found that **LOCATE** works quite differently between MSX BASIC and QBasic because any of the _LOCATE 0_ statements resulted in "Illegal function call" in QBasic, and in MSX the parameter order is _column, line_ while in QBasic it is _line, column_.
-
 ## Operation
 
-Instructions came with the third and last part of the article and code. The spreadsheet is of course very limited and peculiar in some ways, even for the 1980s.
+Instructions came with the third and last part of the article and code. The spreadsheet is of course very limited and peculiar in some ways, even for the 1980s. But it allows for some range operations and cell copies with auto-updated cell references!
 
-- **V**alues in the page and the _**E**quations_ which resulted in some of them are shown separately, by pressing the V and E keys.
+- The spreadsheet itself has two view modes, like pages. _**V**alues_ and _**E**quations_ are accessed by pressing the V and E keys.
 - The cursor keys navigate through cells.
 - To **I**nsert a value or formula in the cell where the cursor is, press I.
 - Cell formulae are written in a kind of Reverse Polish Notation (RPN), like "A1A2+". They are restricted to two cell addresses as operands (but they may refer to start and end of a range in some operations). A digit after the operator can be used to state the desired number of decimal places in the result.
@@ -42,14 +30,44 @@ Sheets are **S**aved or **L**oaded by pressing S or L anytime but when inserting
 
 To **Q**uit the program, press Q.
 
+## The code
+
+I tried to run the program on [WebMSX](https://webmsx.org) and [MSXPen](https://msxpen.com/) (uses the same WebMSX engine) but had no luck. The only way to get the file into the emulator is adding it to a disk image, but probably because of MSX Disk BASIC I kept getting an "Out of memory in 30" error (while DIMensioning the two main arrays).
+
+It is a very simple spreadsheet program which makes heavy use of string manipulation functions in BASIC, especially the following:
+
+- **VAL(st$)** - returns numerical value it can extract from a string _st$_
+- **STR$(v)** - converts a numerical value _v_ into a string. The opposite of VAL().
+- **ASC(c$)** - returns the ASCII value of a given character (or first character of) _c$_
+- **CHR$(c)** - opposite of ASC(), returns the character corresponding to the one-byte code _c_ from the computer´s character table
+- **MID$(st$, fr, nm)** and **MID$(st$, fr, to)=s2$** - in the first form the function returns a number _nm_ of characters from a string _st$_ starting from the _fr_ position; in the second form the function **replaces** part of the string _st$_ with part of another string _s2$_.
+
+Most of the code is actually related to console input/output. The program uses MSX SCREEN 0, a 40x24 display of 6x8 pixel characters. Screen locations are 0 based. I found that **LOCATE** works quite differently between MSX BASIC and QBasic because any of the _LOCATE 0_ statements resulted in "Illegal function call" in QBasic, and in MSX the parameter order is _column, line_ while in QBasic it is _line, column_.
+
+## Literals and constants
+MSX BASIC had no named constants. Instead, there are plenty literals and magic numbers all around the code. Knowing beforehand what some of them mean might help.
+
+- **CHR$(91)** - Opening bracket \[, 5Bh
+- **CHR$(93)** - Closing bracket \], 5Dh
+- **CHR$(219)** - Graphic full block in MSX (DBh)
+- **CHR$() 28, 29, 30, 31** - Cursor keys, respectively right, left, up and down: 1Ch, 1Dh, 1Eh, 1Fh
+- As far as I could understand, the following "extended ASCII" characters are used as prefixes in cell contents stored in array D$ in order to classify them for proper processing:
+  - **CHR$(128)** - 80h, _Ç_ in most MSXs, seems to be used as a placeholder for empty cells, in lines 40, 420, 680 (from 670), 1130, 1170 and 1290.
+  - **CHR$(129)** - 81h is the _ü_ character in most MSX machines. The value is refered in lines 590, 690 and 770. Identifies values.
+  - **CHR$(130)** - 82h, character _é_. Used in line 600, 690 (from 670) and 1170. Identifies labels (textual content).
+  - **CHR$(131)** - 83h, character _â_. Mentioned in lines 550, 820 and 1550. Identifies formulae.
+
+
 ## Main variables
 
-In old BASIC all variables are global, and names are quite commonly restricted to 2 or even 1 _significant_ character(s) (some computers like the MSX accepted variables with bigger names, but the third and following characters are just ignored). Subroutines act on these global variables, so I thought I should start by finding the most important variables first.
+In old BASIC all variables are global, and names are quite commonly restricted to 2 or even 1 _significant_ character(s) &mdash; some computers like the MSX accepted variables with bigger names, but the third and following characters are just ignored). Subroutines act on these global variables, so I thought I should start by finding the most important variables first.
 
 #### D$(26,30) and D(26,30)
-Defined in line 30. These two-dimensional arrays store, respectively, formulae and their results for one sheet.
+Defined in line 30. These two-dimensional arrays store, respectively, formulae and values (including results) for one sheet.
 
-Supposing that 26 is the number of letters in the alphabet and columns are refered to by letters, I wonder why the declaration looks inverted, as a two-dimensional DIM is usually taken as DIM(rows,cols). Indeed, loops (like the one in lines 750 to 780) show an inversion of columns and rows between the array and the sheet view. Furthermore, D$ is initialized in line 40 with CHR$(128) characters, and I still can´t figure out why: in Brazilian MSX computers it would be the "Ç" character (80h).
+Supposing that 26 is the number of letters in the alphabet and columns are refered to by letters, the declaration looks inverted, as a two-dimensional DIM is usually taken as DIM(rows,cols). Indeed, loops (like the one in lines 750 to 780) show an inversion of columns and rows between the array and the sheet view.
+
+All elements of D$ are initialized in line 40 with CHR$(128) characters.
 
 #### MO$(2) and MO
 Related to the view/operation **MO**des of values or equations. Defined in line 20. The two-element array MO$ holds the strings for sheet view modes (values or equations). MO is initialized to 1 (equation) and seems to hold the current operation mode.
@@ -58,33 +76,26 @@ Related to the view/operation **MO**des of values or equations. Defined in line 
 I presume the names stand for **R**esult **V**alue. RV is set by all subroutines which perform the supported cell calculations. RV$
 
 #### CC and CR
-These numerical variables seem to be named after _**C**urrent **C**olumn_ and _**C**urrent **R**ow_.
+These numerical variables seem to be named after _**C**urrent **C**olumn_ and _**C**urrent **R**ow_. Or it might be _**C**ursor_. Anyway, these variables are apparently related to where the keyboard cursor is located within the spreadsheet
 
-#### A$
-Apparently, this is a string variable used to catch input in various and not so related parts of the program.
+#### RS
+It might mean _**R**ow **S**tart_. For what happens in lines 220 and 230, this seems to be related to the 15 rows which are actually shown on screen while scrolling up or down through the 30 lines of a sheet.
+
+
+#### A$, I$
+Apparently, those are string variables used to catch input in various and not so related parts of the program.
 
 #### OP$
 From its declaration in line 20, this is a string which holds all the supported numerical **OP**erators.
 
-### Literals and constants
-MSX BASIC had no named constants. Instead, there are plenty literals and magic numbers all around the code. Knowing beforehand what some of them mean might help.
 
-- **CHR$(91)** - Opening bracket \[, 5Bh
-- **CHR$(93)** - Closing bracket \], 5Dh
-- **CHR$(219)** - Graphic full block in MSX (DBh)
-- **CHR$() 28, 29, 30, 31** - Cursor keys, respectively right, left, up and down: 1Ch, 1Dh, 1Eh, 1Fh
-- As far as I could understand, the following "extended ASCII" characters are used as prefixes in cell contents stored in D$ in order to classify them for proper processing:
-  - **CHR$(128)** - 80h, _Ç_ in most MSXs, seems to be used as a placeholder for empty cells, in lines 40, 420, 680 (from 670), 1130, 1170 and 1290.
-  - **CHR$(129)** - 81h is the _ü_ character in most MSX machines. The value is refered in lines 590, 690 and 770. Identifies values.
-  - **CHR$(130)** - 82h, character _é_. Used in line 600, 690 (from 670) and 1170. Identifies labels (textual content).
-  - **CHR$(131)** - 83h, character _â_. Mentioned in lines 550, 820 and 1550. Identifies formulae.
 
 ## Subroutines (GOTOs and GOSUBs)
 
 #### GOSUB 70 - 160 - Draw main screen
 Called at lines 60, 270, 290, 400
 
-Starts by printing a 3 graphic blocks at the third line of the screen.
+Line 70 prints a "wait" message in screen line 20 and assembles the topmost screen line: first a sequence of 3 graphic blocks; then four column headers like **[  ]** and one more graphic block by the end.
 
 Line 90 contains some mysterious calculation and screen output in a FOR...NEXT loop. Let´s open it:
 ```BASIC
@@ -95,17 +106,31 @@ FOR I=0 TO 15
   PRINT CHR$(C1);CHR$(C2):
 NEXT
 ```
-I just can´t understand why the hell such a convoluted and slow way was found just to write line numbers from 02 to 16 at the left side of the screen. In ASCII, the codes for 0 to 9 are 48 (30h) to 57 (39h), and these are the values attributed to C1 and C2 here.
+I wonder if there would be a less convoluted way to write row numbers at the left; it probably is made like that because 30 spreadsheet rows must be shown in only 15 screen lines, so we need vertical scroll and matching row numbers, always shown in two digits, C1 and C2 here.
+
+In ASCII, the codes for 0 to 9 are 48 (30h) to 57 (39h), and these are the values attributed to C1 and C2 here.
 
  
 
 #### GOSUB 130 - 160 - Update the "status line" at screen top
 Called at line 320, this target is still part of the main screen drawing routine started at line 70 &ndash; the jump looks like a dirty trick of branching to the _middle_ of a subroutine!
 
-#### GOTO 170 - 320 - Command keys input
+#### GOTO 170 - 320 - Command keys input and screen scrolling
 We get here right after initialization, from line 60. This section puts the program in "waiting command" state, and branches processing when any of the cursor or command keys is pressed.
 
-This is the only "non-portable" section of the program, with VPEEK and VPOKE used from line 170 to 190 to read and write bytes from/to the MSX video memory. Especifically, a byte with value 219, DBh, the full block character. Mathemagics involved.
+The most interesting lines in this section are 170 and 190-230, which are executed if a cursor key was pressed. In such a case, variables are set to allow proper screen redraw by the subroutine at 70.
+
+This is the only "non-portable" section of the program, with VPEEK and VPOKE used from line 170 to 190 to read and write bytes from/to the MSX video memory. Especifically, a byte with value 219, DBh, the full block character.
+
+The mathemagics in line 170 are still a mistery.
+
+Line 200 catches the "left arrow" key. The "active column" represented by CC is subtracted by one if it is not already the first row of the spreadsheet.
+
+210 catches the "right arrow" key.
+
+220 catches the "down arrow" character. If the "active row" is not the final row of the sheet, move it by adding one. If the new "active row" is below the last of the 15 rows on screen, also add 1 to the RS, which stores the number of the first (top) visible line. 
+
+230 catches "up arrow". The number of the "active row" is decreased if it is not already 1. If the new "active row" is not visible at the top, decrease also RS with the number of the topmost visible row, and go redraw the screen.
 
 
 
